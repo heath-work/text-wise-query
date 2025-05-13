@@ -108,8 +108,33 @@ If the answer cannot be found in the documents, please state that clearly.
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error("Google AI API error:", errorData);
+      const errorText = await response.text();
+      console.error("Google AI API error:", errorText);
+      
+      // Check if it's a rate limit error
+      if (response.status === 429) {
+        let fallbackResponse = "I apologize, but I've hit a rate limit with the AI service. ";
+        
+        // Generate a simple fallback response using the document content
+        fallbackResponse += "Based on the documents you've uploaded, here's a summary: ";
+        
+        // Add simple document information
+        documents.forEach(doc => {
+          fallbackResponse += `\n\n${doc.name}: `;
+          
+          // Get a short preview of the content
+          const contentPreview = doc.content.substring(0, 200);
+          fallbackResponse += `${contentPreview}... (${doc.content.length} characters total)`;
+        });
+        
+        fallbackResponse += "\n\nPlease try again in a few minutes when the rate limit has reset.";
+        
+        return new Response(
+          JSON.stringify({ text: fallbackResponse }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       throw new Error(`Google AI API error: ${response.status}`);
     }
 
@@ -127,7 +152,7 @@ If the answer cannot be found in the documents, please state that clearly.
   } catch (error) {
     console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, details: "Please check the Edge Function logs for more information." }),
       { 
         status: 500, 
         headers: { ...corsHeaders, "Content-Type": "application/json" }
