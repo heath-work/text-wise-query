@@ -1,6 +1,7 @@
 
 import { toast } from "sonner";
 import { DocumentFile } from "./pdfUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ChatMessage {
   id: string;
@@ -9,36 +10,34 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-// Generate a placeholder response based on the question and documents
+// Generate a response using the Google AI API via Supabase Edge Function
 export const generateResponse = async (
   question: string,
   documents: DocumentFile[]
 ): Promise<string> => {
-  // In a real implementation, this would use an AI model or API to generate answers
-  // based on document context
-  
   if (documents.length === 0) {
     return "Please upload some PDF documents first so I can answer your questions.";
   }
   
   try {
-    // Simulate AI processing time
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Collect document IDs
+    const documentIds = documents.map(doc => doc.id);
     
-    const documentNames = documents.map(doc => doc.name).join(", ");
-    
-    // Very simple response generation logic (to be replaced with actual AI processing)
-    const lowercaseQuestion = question.toLowerCase();
-    
-    if (lowercaseQuestion.includes("how many") && lowercaseQuestion.includes("document")) {
-      return `You've uploaded ${documents.length} document${documents.length > 1 ? 's' : ''}: ${documentNames}.`;
-    } 
-    
-    if (lowercaseQuestion.includes("what") && lowercaseQuestion.includes("document")) {
-      return `Based on the documents you've uploaded (${documentNames}), I can answer questions about their content. What would you like to know specifically?`;
+    // Call the Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('generate-ai-response', {
+      body: { question, documentIds }
+    });
+
+    if (error) {
+      console.error("Error calling AI function:", error);
+      throw new Error(error.message);
+    }
+
+    if (!data || !data.text) {
+      throw new Error("No response received from AI service");
     }
     
-    return `Based on the content in your ${documents.length} uploaded document${documents.length > 1 ? 's' : ''}, I would answer: This is a placeholder response. In a real implementation, I would analyze the content of ${documentNames} and generate a relevant answer to your question: "${question}".`;
+    return data.text;
     
   } catch (error) {
     console.error("Error generating response:", error);

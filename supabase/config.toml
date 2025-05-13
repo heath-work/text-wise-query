@@ -1,1 +1,5 @@
+
 project_id = "zritiseifgxtjrocgyfl"
+
+[functions.generate-ai-response]
+verify_jwt = true
