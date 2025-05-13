@@ -16,7 +16,18 @@ const DocumentList: React.FC<DocumentListProps> = ({
   onRemoveDocument
 }) => {
   if (documents.length === 0) {
-    return null;
+    return (
+      <Card className="mt-6">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Uploaded Documents (0)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground py-8">
+            No documents have been uploaded yet.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DocumentFile } from "@/utils/pdfUtils";
 import { ChatMessage, generateResponse } from "@/utils/chatUtils";
 import DocumentUploader from "@/components/DocumentUploader";
@@ -8,20 +8,45 @@ import ChatInterface from "@/components/ChatInterface";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getDocumentsFromSupabase, deleteDocumentFromSupabase } from "@/utils/supabaseDocumentUtils";
+import { toast } from "sonner";
 
 const Index = () => {
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
+
+  // Fetch documents from Supabase on component mount
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      setIsLoading(true);
+      try {
+        const docs = await getDocumentsFromSupabase();
+        setDocuments(docs);
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        toast.error("Failed to load documents");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDocuments();
+  }, []);
 
   const handleDocumentsUploaded = (newDocuments: DocumentFile[]) => {
     setDocuments((prevDocuments) => [...prevDocuments, ...newDocuments]);
   };
 
-  const handleRemoveDocument = (id: string) => {
-    setDocuments((prevDocuments) => prevDocuments.filter((doc) => doc.id !== id));
+  const handleRemoveDocument = async (id: string) => {
+    const deleted = await deleteDocumentFromSupabase(id);
+    if (deleted) {
+      setDocuments((prevDocuments) => prevDocuments.filter((doc) => doc.id !== id));
+      toast.success("Document removed successfully");
+    }
   };
 
   const handleSendMessage = async (text: string) => {
@@ -79,10 +104,16 @@ const Index = () => {
                   isProcessing={isProcessingUpload}
                   setIsProcessing={setIsProcessingUpload}
                 />
-                <DocumentList 
-                  documents={documents}
-                  onRemoveDocument={handleRemoveDocument}
-                />
+                {isLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                  </div>
+                ) : (
+                  <DocumentList 
+                    documents={documents}
+                    onRemoveDocument={handleRemoveDocument}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>

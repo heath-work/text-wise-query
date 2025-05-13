@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Upload, File } from "lucide-react";
 import { processMultiplePdfFiles, isPdfFile } from "@/utils/pdfUtils";
 import { DocumentFile } from "@/utils/pdfUtils";
+import { saveDocumentToSupabase } from "@/utils/supabaseDocumentUtils";
 
 interface DocumentUploaderProps {
   onDocumentsUploaded: (documents: DocumentFile[]) => void;
@@ -43,8 +44,16 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
         const processedDocuments = await processMultiplePdfFiles(pdfFiles);
         
         if (processedDocuments.length > 0) {
-          onDocumentsUploaded(processedDocuments);
-          toast.success(`Successfully processed ${processedDocuments.length} document${processedDocuments.length > 1 ? "s" : ""}.`);
+          // Save documents to Supabase
+          const savePromises = processedDocuments.map(doc => saveDocumentToSupabase(doc));
+          const saveResults = await Promise.all(savePromises);
+          
+          const successCount = saveResults.filter(Boolean).length;
+          
+          if (successCount > 0) {
+            onDocumentsUploaded(processedDocuments);
+            toast.success(`Successfully processed and saved ${successCount} document${successCount > 1 ? "s" : ""}.`);
+          }
         }
       } catch (error) {
         console.error("Error processing PDF files:", error);
