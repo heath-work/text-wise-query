@@ -1,5 +1,6 @@
 
 import { toast } from "sonner";
+import { v4 as uuidv4 } from 'uuid';
 
 export interface DocumentFile {
   id: string;
@@ -36,7 +37,7 @@ export const processPdfFile = (file: File): Promise<DocumentFile> => {
       // For now, we'll just use a placeholder message
       setTimeout(() => {
         const documentFile: DocumentFile = {
-          id: Math.random().toString(36).substr(2, 9),
+          id: uuidv4(), // Generate a proper UUID
           name: file.name,
           size: file.size,
           type: file.type,
