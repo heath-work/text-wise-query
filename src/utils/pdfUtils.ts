@@ -122,6 +122,49 @@ export const processPdfFile = (file: File): Promise<DocumentFile> => {
   });
 };
 
+// Fetch a PDF from a URL and process it
+export const fetchPdfFromUrl = async (url: string, fileName: string): Promise<DocumentFile | null> => {
+  try {
+    console.log(`Fetching PDF from URL: ${url}`);
+    
+    // Fetch the PDF file
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+    }
+    
+    // Get the file size
+    const contentLength = response.headers.get('content-length');
+    const size = contentLength ? parseInt(contentLength, 10) : 0;
+    
+    // Convert response to array buffer
+    const arrayBuffer = await response.arrayBuffer();
+    console.log(`PDF fetched successfully. Size: ${arrayBuffer.byteLength} bytes`);
+    
+    // Show extraction progress toast
+    toast.info(`Extracting text from ${fileName}...`);
+    
+    // Extract text from PDF
+    const extractedText = await extractTextFromPdf(arrayBuffer);
+    
+    const documentFile: DocumentFile = {
+      id: uuidv4(),
+      name: fileName,
+      size: size,
+      type: 'application/pdf',
+      content: extractedText,
+      lastModified: Date.now()
+    };
+    
+    console.log(`Successfully processed ${fileName}: extracted ${extractedText.length} characters`);
+    return documentFile;
+  } catch (error) {
+    console.error('Error fetching PDF from URL:', error);
+    toast.error(`Failed to fetch PDF from URL: ${error.message}`);
+    return null;
+  }
+};
+
 // Process multiple PDF files
 export const processMultiplePdfFiles = async (
   files: File[]
