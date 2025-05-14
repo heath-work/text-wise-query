@@ -230,13 +230,16 @@ export const getChatMessages = async (chatId: string): Promise<ChatMessage[]> =>
     return data.map(msg => ({
       id: msg.id,
       text: msg.text,
-      sender: msg.sender,
+      sender: msg.sender as "user" | "bot", // Type assertion to match ChatMessage type
       timestamp: new Date(msg.timestamp).getTime(),
       sourceInfo: msg.source_info ? {
-        sourceDocuments: msg.source_info.sourceDocuments || [],
-        pageNumber: msg.source_info.pageNumber || "",
-        sectionInfo: msg.source_info.sectionInfo || "",
-        paragraphInfo: msg.source_info.paragraphInfo || ""
+        // Handle source_info properly with type checking
+        sourceDocuments: Array.isArray(msg.source_info?.sourceDocuments) 
+          ? msg.source_info.sourceDocuments 
+          : [],
+        pageNumber: msg.source_info?.pageNumber?.toString() || "",
+        sectionInfo: msg.source_info?.sectionInfo?.toString() || "",
+        paragraphInfo: msg.source_info?.paragraphInfo?.toString() || ""
       } : undefined
     }));
   } catch (error) {
