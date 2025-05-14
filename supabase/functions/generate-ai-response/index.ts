@@ -58,7 +58,7 @@ serve(async (req) => {
     console.log("Sending request to OpenAI API...");
 
     try {
-      // Call OpenAI API
+      // Call OpenAI API with improved error handling
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -84,7 +84,7 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("OpenAI API error:", errorData);
+        console.error("OpenAI API error details:", JSON.stringify(errorData, null, 2));
         
         if (response.status === 429) {
           return new Response(
@@ -99,7 +99,16 @@ serve(async (req) => {
           );
         }
         
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        return new Response(
+          JSON.stringify({
+            error: `OpenAI API error: ${response.status} ${response.statusText}`,
+            details: errorData.error?.message || "Unknown error"
+          }),
+          {
+            status: response.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+          }
+        );
       }
 
       const data = await response.json();
@@ -132,7 +141,10 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error processing request:", error);
     return new Response(
-      JSON.stringify({ error: error.message, details: "Please check the Edge Function logs for more information." }),
+      JSON.stringify({ 
+        error: error.message, 
+        details: "Please check the Edge Function logs for more information." 
+      }),
       { 
         status: 500, 
         headers: { ...corsHeaders, "Content-Type": "application/json" }

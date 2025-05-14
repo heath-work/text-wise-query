@@ -44,21 +44,24 @@ export const generateResponse = async (
         return "The OpenAI API key is not configured. Please add your OpenAI API key to continue using this feature.";
       }
       
-      throw new Error(errorMessage);
+      toast.error("Error connecting to AI service. Please try again.");
+      return `I'm having trouble connecting to the AI service. Error: ${errorMessage}. Please try again in a moment.`;
     }
 
     if (!data) {
-      throw new Error("No response received from AI service");
+      toast.error("No response received from AI service");
+      return "No response received from the AI service. Please try again.";
     }
     
     if (data.error) {
       console.error("AI service returned an error:", data.error);
       toast.error(`AI service error: ${data.error}`);
-      return `I encountered an error while processing your question: ${data.error}. Please try again or rephrase your question.`;
+      return `I encountered an error while processing your question: ${data.error}. ${data.details || ''}`;
     }
     
     if (!data.text) {
-      throw new Error("No text field in response from AI service");
+      toast.error("Invalid response format from AI service");
+      return "I received an invalid response format. Please try again.";
     }
     
     return data.text;
