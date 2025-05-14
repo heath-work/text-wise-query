@@ -159,7 +159,7 @@ const Index = () => {
 
         <div className={`grid ${isMobile ? 'grid-cols-1 gap-6' : 'grid-cols-12 gap-8'}`}>
           {/* Documents Section */}
-          <div className={isMobile ? '' : 'col-span-3'}>
+          <div className={isMobile ? '' : 'col-span-2'}>
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle>Documents</CardTitle>
@@ -186,7 +186,7 @@ const Index = () => {
 
           {/* Chat History Section - Only visible on desktop or when toggled on mobile */}
           {showChatHistory && (
-            <div className={isMobile ? '' : 'col-span-3'}>
+            <div className={isMobile ? '' : 'col-span-2'}>
               <Card className="h-full">
                 <CardHeader className="pb-3">
                   <CardTitle>Chat History</CardTitle>
@@ -203,7 +203,7 @@ const Index = () => {
           )}
 
           {/* Chat Section */}
-          <div className={isMobile ? '' : `col-span-${showChatHistory ? '6' : '9'}`}>
+          <div className={isMobile ? '' : `col-span-${showChatHistory ? '8' : '10'}`}>
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle>Chat</CardTitle>

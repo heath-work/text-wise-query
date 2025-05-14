@@ -2,37 +2,33 @@
 import { supabase } from "@/integrations/supabase/client";
 import { ChatMessage } from "./chatUtils";
 import { v4 as uuidv4 } from "uuid";
+import { Json } from "@/integrations/supabase/types";
 
 export interface ChatSession {
   id: string;
   title: string;
   documentIds: string[];
-  createdAt: number;
-  updatedAt: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * Creates a new chat session in Supabase
- */
+// Create a new chat session
 export const createChatSession = async (
   documentIds: string[],
   title: string
 ): Promise<ChatSession | null> => {
   try {
-    const id = uuidv4();
-    const timestamp = Date.now();
+    const newSession = {
+      id: uuidv4(),
+      title,
+      document_ids: documentIds,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("chat_sessions")
-      .insert({
-        id,
-        title,
-        document_ids: documentIds,
-        created_at: new Date(timestamp).toISOString(),
-        updated_at: new Date(timestamp).toISOString()
-      })
-      .select()
-      .single();
+      .insert(newSession);
 
     if (error) {
       console.error("Error creating chat session:", error);
@@ -40,21 +36,19 @@ export const createChatSession = async (
     }
 
     return {
-      id: data.id,
-      title: data.title,
-      documentIds: data.document_ids || [],
-      createdAt: new Date(data.created_at).getTime(),
-      updatedAt: new Date(data.updated_at).getTime()
+      id: newSession.id,
+      title: newSession.title,
+      documentIds: newSession.document_ids,
+      createdAt: newSession.created_at,
+      updatedAt: newSession.updated_at,
     };
   } catch (error) {
-    console.error("Error in createChatSession:", error);
+    console.error("Error creating chat session:", error);
     return null;
   }
 };
 
-/**
- * Retrieves all chat sessions for the current user
- */
+// Get chat sessions for the current user
 export const getChatSessions = async (): Promise<ChatSession[]> => {
   try {
     const { data, error } = await supabase
@@ -63,26 +57,24 @@ export const getChatSessions = async (): Promise<ChatSession[]> => {
       .order("updated_at", { ascending: false });
 
     if (error) {
-      console.error("Error getting chat sessions:", error);
+      console.error("Error fetching chat sessions:", error);
       return [];
     }
 
-    return data.map(session => ({
+    return data.map((session) => ({
       id: session.id,
       title: session.title,
-      documentIds: session.document_ids || [],
-      createdAt: new Date(session.created_at).getTime(),
-      updatedAt: new Date(session.updated_at).getTime()
+      documentIds: session.document_ids,
+      createdAt: session.created_at,
+      updatedAt: session.updated_at,
     }));
   } catch (error) {
-    console.error("Error in getChatSessions:", error);
+    console.error("Error fetching chat sessions:", error);
     return [];
   }
 };
 
-/**
- * Retrieves a specific chat session by ID
- */
+// Get a specific chat session by ID
 export const getChatSession = async (id: string): Promise<ChatSession | null> => {
   try {
     const { data, error } = await supabase
@@ -92,68 +84,38 @@ export const getChatSession = async (id: string): Promise<ChatSession | null> =>
       .single();
 
     if (error || !data) {
-      console.error("Error getting chat session:", error);
+      console.error("Error fetching chat session:", error);
       return null;
     }
 
     return {
       id: data.id,
       title: data.title,
-      documentIds: data.document_ids || [],
-      createdAt: new Date(data.created_at).getTime(),
-      updatedAt: new Date(data.updated_at).getTime()
+      documentIds: data.document_ids,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
     };
   } catch (error) {
-    console.error("Error in getChatSession:", error);
+    console.error("Error fetching chat session:", error);
     return null;
   }
 };
 
-/**
- * Updates the title of a chat session
- */
-export const updateChatSessionTitle = async (
-  id: string,
-  title: string
-): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from("chat_sessions")
-      .update({
-        title,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error updating chat session title:", error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Error in updateChatSessionTitle:", error);
-    return false;
-  }
-};
-
-/**
- * Deletes a chat session and its messages
- */
+// Delete a chat session and its messages
 export const deleteChatSession = async (id: string): Promise<boolean> => {
   try {
-    // First delete all messages associated with the session
+    // First delete all messages for this session
     const { error: messagesError } = await supabase
       .from("chat_messages")
       .delete()
-      .eq("session_id", id);
+      .eq("chat_id", id);
 
     if (messagesError) {
       console.error("Error deleting chat messages:", messagesError);
       return false;
     }
 
-    // Then delete the session itself
+    // Then delete the session
     const { error: sessionError } = await supabase
       .from("chat_sessions")
       .delete()
@@ -166,119 +128,97 @@ export const deleteChatSession = async (id: string): Promise<boolean> => {
 
     return true;
   } catch (error) {
-    console.error("Error in deleteChatSession:", error);
+    console.error("Error deleting chat session:", error);
     return false;
   }
 };
 
-/**
- * Saves chat messages for a session
- */
+// Save chat messages to a session
 export const saveChatMessages = async (
-  sessionId: string,
+  chatId: string,
   messages: ChatMessage[]
 ): Promise<boolean> => {
   try {
     // Update the session's updated_at timestamp
-    await supabase
+    const { error: updateError } = await supabase
       .from("chat_sessions")
-      .update({
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", sessionId);
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", chatId);
 
-    // Delete existing messages for this session
-    await supabase
-      .from("chat_messages")
-      .delete()
-      .eq("session_id", sessionId);
-
-    // Skip if there are no messages to save
-    if (messages.length === 0) {
-      return true;
+    if (updateError) {
+      console.error("Error updating chat session timestamp:", updateError);
     }
 
-    // Insert all messages
-    const messagesToInsert = messages.map(msg => ({
-      id: msg.id,
-      session_id: sessionId,
-      text: msg.text,
-      sender: msg.sender,
-      timestamp: new Date(msg.timestamp).toISOString(),
-      source_info: msg.sourceInfo ? {
-        sourceDocuments: msg.sourceInfo.sourceDocuments,
-        pageNumber: msg.sourceInfo.pageNumber,
-        sectionInfo: msg.sourceInfo.sectionInfo,
-        paragraphInfo: msg.sourceInfo.paragraphInfo
-      } : null
+    // Delete existing messages for this chat to replace with new ones
+    const { error: deleteError } = await supabase
+      .from("chat_messages")
+      .delete()
+      .eq("chat_id", chatId);
+
+    if (deleteError) {
+      console.error("Error deleting existing chat messages:", deleteError);
+      return false;
+    }
+
+    // Format messages for database insertion
+    const formattedMessages = messages.map((message) => ({
+      id: message.id,
+      chat_id: chatId,
+      text: message.text,
+      sender: message.sender,
+      timestamp: new Date(message.timestamp).toISOString(),
+      source_info: message.sourceInfo || null
     }));
 
-    const { error } = await supabase
+    // Insert all messages
+    const { error: insertError } = await supabase
       .from("chat_messages")
-      .insert(messagesToInsert);
+      .insert(formattedMessages);
 
-    if (error) {
-      console.error("Error saving chat messages:", error);
+    if (insertError) {
+      console.error("Error saving chat messages:", insertError);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error("Error in saveChatMessages:", error);
+    console.error("Error saving chat messages:", error);
     return false;
   }
 };
 
-/**
- * Retrieves chat messages for a session
- */
-export const getChatMessages = async (sessionId: string): Promise<ChatMessage[]> => {
+// Get chat messages for a session
+export const getChatMessages = async (chatId: string): Promise<ChatMessage[]> => {
   try {
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
-      .eq("session_id", sessionId)
+      .eq("chat_id", chatId)
       .order("timestamp", { ascending: true });
 
     if (error) {
-      console.error("Error getting chat messages:", error);
+      console.error("Error fetching chat messages:", error);
       return [];
     }
 
-    return data.map(msg => {
-      // Create a base chat message
-      const chatMessage: ChatMessage = {
-        id: msg.id,
-        text: msg.text,
-        sender: msg.sender as "user" | "bot", // Type assertion
-        timestamp: new Date(msg.timestamp).getTime()
+    return data.map((message) => {
+      const sourceInfo = message.source_info as Record<string, any> | null;
+      
+      return {
+        id: message.id,
+        text: message.text,
+        sender: message.sender as "user" | "bot",
+        timestamp: new Date(message.timestamp).getTime(),
+        sourceInfo: sourceInfo ? {
+          sourceDocuments: sourceInfo.sourceDocuments || [],
+          pageNumber: sourceInfo.pageNumber || "",
+          sectionInfo: sourceInfo.sectionInfo || "",
+          paragraphInfo: sourceInfo.paragraphInfo || ""
+        } : undefined
       };
-
-      // Handle source_info if it exists
-      if (msg.source_info) {
-        // Make sure source_info is an object before trying to access its properties
-        const sourceInfo = typeof msg.source_info === 'object' ? msg.source_info : {};
-        
-        chatMessage.sourceInfo = {
-          sourceDocuments: Array.isArray(sourceInfo.sourceDocuments) 
-            ? sourceInfo.sourceDocuments 
-            : [],
-          pageNumber: typeof sourceInfo.pageNumber === 'string' 
-            ? sourceInfo.pageNumber 
-            : String(sourceInfo.pageNumber || ''),
-          sectionInfo: typeof sourceInfo.sectionInfo === 'string' 
-            ? sourceInfo.sectionInfo 
-            : String(sourceInfo.sectionInfo || ''),
-          paragraphInfo: typeof sourceInfo.paragraphInfo === 'string' 
-            ? sourceInfo.paragraphInfo 
-            : String(sourceInfo.paragraphInfo || '')
-        };
-      }
-
-      return chatMessage;
     });
   } catch (error) {
-    console.error("Error in getChatMessages:", error);
+    console.error("Error fetching chat messages:", error);
     return [];
   }
 };

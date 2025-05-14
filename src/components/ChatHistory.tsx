@@ -1,28 +1,20 @@
-
 import React, { useState, useEffect } from "react";
+import { getChatSessions, deleteChatSession, ChatSession } from "@/utils/chatHistoryUtils";
 import { Button } from "@/components/ui/button";
-import { 
-  MessageSquare, 
-  Plus, 
-  Trash2, 
-  Edit2, 
-  Check, 
-  X,
-  Clock
-} from "lucide-react";
-import { 
-  getChatSessions, 
-  deleteChatSession, 
-  updateChatSessionTitle,
-  ChatSession
-} from "@/utils/chatHistoryUtils";
-import { Input } from "@/components/ui/input";
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { formatDistanceToNow } from "date-fns";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface ChatHistoryProps {
   onSelectChat: (chatId: string) => void;
@@ -30,169 +22,153 @@ interface ChatHistoryProps {
   currentChatId: string | null;
 }
 
-const ChatHistory: React.FC<ChatHistoryProps> = ({ 
-  onSelectChat, 
-  onNewChat, 
-  currentChatId 
-}) => {
+const ChatHistory: React.FC<ChatHistoryProps> = ({ onSelectChat, onNewChat, currentChatId }) => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [editingChatId, setEditingChatId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
 
   useEffect(() => {
-    loadChatSessions();
+    const fetchChatSessions = async () => {
+      setIsLoading(true);
+      try {
+        const sessions = await getChatSessions();
+        setChatSessions(sessions);
+      } catch (error) {
+        console.error("Error fetching chat sessions:", error);
+        toast.error("Failed to load chat history");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChatSessions();
   }, []);
 
-  const loadChatSessions = async () => {
-    setIsLoading(true);
-    const sessions = await getChatSessions();
-    setChatSessions(sessions);
-    setIsLoading(false);
-  };
-
-  const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    if (confirm("Are you sure you want to delete this chat?")) {
-      const success = await deleteChatSession(chatId);
-      if (success) {
-        setChatSessions(prev => prev.filter(session => session.id !== chatId));
-        
-        // If the deleted chat was the current chat, create a new chat
+  const handleDeleteChat = async (chatId: string) => {
+    try {
+      const deleted = await deleteChatSession(chatId);
+      if (deleted) {
+        setChatSessions((prevSessions) => prevSessions.filter((session) => session.id !== chatId));
+        toast.success("Chat history deleted successfully");
         if (chatId === currentChatId) {
           onNewChat();
         }
+      } else {
+        toast.error("Failed to delete chat history");
       }
+    } catch (error) {
+      console.error("Error deleting chat session:", error);
+      toast.error("Failed to delete chat history");
     }
-  };
-
-  const startEditing = (chatId: string, currentTitle: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingChatId(chatId);
-    setEditTitle(currentTitle);
-  };
-
-  const saveTitle = async (chatId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (editTitle.trim()) {
-      const success = await updateChatSessionTitle(chatId, editTitle.trim());
-      if (success) {
-        setChatSessions(prev => prev.map(session => 
-          session.id === chatId ? { ...session, title: editTitle.trim() } : session
-        ));
-      }
-    }
-    setEditingChatId(null);
-  };
-
-  const cancelEditing = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingChatId(null);
   };
 
   return (
-    <div className="space-y-4">
-      <Button 
-        variant="outline" 
-        className="w-full flex items-center gap-2" 
-        onClick={onNewChat}
-      >
-        <Plus size={16} /> New Chat
-      </Button>
-
-      <div className="space-y-2 mt-4">
-        <div className="text-sm font-medium text-muted-foreground mb-2">Chat History</div>
+    <div className="flex flex-col h-full">
+      <div className="flex-grow overflow-hidden">
         {isLoading ? (
-          <div className="flex justify-center py-4">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-6 max-w-md">
+              <div className="bg-primary/10 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-8 w-8 text-primary animate-spin"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium mb-2">Loading Chat History</h3>
+              <p className="text-muted-foreground text-sm">
+                Fetching your previous chat sessions...
+              </p>
+            </div>
           </div>
         ) : chatSessions.length === 0 ? (
-          <div className="text-sm text-muted-foreground text-center py-4">
-            No chat history yet
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center p-6 max-w-md">
+              <div className="bg-primary/10 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-8 w-8 text-primary"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium mb-2">No Chat History</h3>
+              <p className="text-muted-foreground text-sm">
+                Start a new conversation to see your chat history here.
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="space-y-1">
-            {chatSessions.map((session) => (
-              <div
-                key={session.id}
-                onClick={() => onSelectChat(session.id)}
-                className={`flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-accent group ${
-                  currentChatId === session.id ? "bg-accent" : ""
-                }`}
-              >
-                <div className="flex items-center space-x-2 overflow-hidden">
-                  <MessageSquare size={16} className="flex-shrink-0 text-muted-foreground" />
-                  
-                  {editingChatId === session.id ? (
-                    <div className="flex items-center space-x-1 flex-grow">
-                      <Input
-                        value={editTitle}
-                        onChange={(e) => setEditTitle(e.target.value)}
-                        className="h-7 text-sm"
-                        autoFocus
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={(e) => saveTitle(session.id, e)}
-                        className="h-7 w-7 p-0"
-                      >
-                        <Check size={14} />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={cancelEditing}
-                        className="h-7 w-7 p-0"
-                      >
-                        <X size={14} />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-1 flex-grow overflow-hidden">
-                      <span className="text-sm truncate">{session.title}</span>
-                      
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="text-xs text-muted-foreground flex items-center ml-1">
-                            <Clock size={12} className="mr-1" />
-                            {formatDistanceToNow(new Date(session.updated_at), { addSuffix: true })}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="right">
-                          Last updated: {new Date(session.updated_at).toLocaleString()}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  )}
-                </div>
-
-                {editingChatId !== session.id && (
-                  <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0"
-                      onClick={(e) => startEditing(session.id, session.title, e)}
+          <ScrollArea className="rounded-md border h-full">
+            <div className="p-4">
+              <ul className="space-y-2">
+                {chatSessions.map((session) => (
+                  <li
+                    key={session.id}
+                    className="flex items-center justify-between p-2 rounded-md hover:bg-secondary cursor-pointer"
+                  >
+                    <button
+                      onClick={() => onSelectChat(session.id)}
+                      className={`flex-grow text-left ${
+                        session.id === currentChatId ? "font-semibold" : ""
+                      }`}
                     >
-                      <Edit2 size={14} />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0 hover:text-destructive"
-                      onClick={(e) => handleDeleteChat(session.id, e)}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+                      {session.title}
+                    </button>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(session.updatedAt).toLocaleDateString()}
+                      </span>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete this chat and all of its
+                              messages.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteChat(session.id)}>
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </ScrollArea>
         )}
+      </div>
+      <div className="mt-4">
+        <Button variant="outline" onClick={onNewChat} className="w-full">
+          New Chat
+        </Button>
       </div>
     </div>
   );
