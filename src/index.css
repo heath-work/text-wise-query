@@ -82,6 +82,6 @@
   border-radius: 20px;
 }
 
-.col-span-8 {
+.col-span-9 {
     grid-column: span 9 / span 9;
 }
