@@ -1,6 +1,11 @@
 
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
+import * as pdfjs from 'pdfjs-dist';
+
+// Set the worker source for PDF.js
+const pdfjsWorkerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerSrc;
 
 export interface DocumentFile {
   id: string;
@@ -23,36 +28,70 @@ export const formatFileSize = (bytes: number): string => {
   else return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 };
 
+// Extract text from PDF file using PDF.js
+export const extractTextFromPdf = async (arrayBuffer: ArrayBuffer): Promise<string> => {
+  try {
+    // Load the PDF document
+    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    
+    // Extract text from each page
+    const numPages = pdf.numPages;
+    let fullText = '';
+    
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n\n'; // Add line breaks between pages
+    }
+    
+    return fullText.trim();
+  } catch (error) {
+    console.error('Error extracting text from PDF:', error);
+    throw new Error('Error extracting text from PDF');
+  }
+};
+
 // Process PDF file and extract text content
 export const processPdfFile = (file: File): Promise<DocumentFile> => {
   return new Promise((resolve, reject) => {
-    // In a real implementation, we would use a library like pdf.js to extract text
-    // For now, we'll simulate text extraction with a placeholder
-    
-    // Create a file reader
     const reader = new FileReader();
     
-    reader.onload = () => {
-      // Here we would normally process the PDF and extract text
-      // For now, we'll just use a placeholder message
-      setTimeout(() => {
+    reader.onload = async () => {
+      try {
+        const arrayBuffer = reader.result as ArrayBuffer;
+        
+        // Show extraction progress toast
+        toast.info(`Extracting text from ${file.name}...`);
+        
+        // Extract text from PDF
+        const extractedText = await extractTextFromPdf(arrayBuffer);
+        
         const documentFile: DocumentFile = {
-          id: uuidv4(), // Generate a proper UUID
+          id: uuidv4(),
           name: file.name,
           size: file.size,
           type: file.type,
-          content: `This is the extracted content from ${file.name}. In a real implementation, this would contain the actual text extracted from the PDF.`,
+          content: extractedText,
           lastModified: file.lastModified
         };
+        
         resolve(documentFile);
-      }, 1000); // Simulate processing time
+      } catch (error) {
+        console.error('Error processing PDF file:', error);
+        reject(new Error(`Error extracting text from ${file.name}: ${error.message}`));
+      }
     };
     
     reader.onerror = () => {
       reject(new Error(`Error reading file: ${file.name}`));
     };
     
-    // Start reading the file as text
+    // Read the file as ArrayBuffer
     reader.readAsArrayBuffer(file);
   });
 };
@@ -70,10 +109,19 @@ export const processMultiplePdfFiles = async (
     }
     
     const processedFiles = await Promise.all(
-      pdfFiles.map(file => processPdfFile(file))
+      pdfFiles.map(file => {
+        return processPdfFile(file)
+          .catch(error => {
+            toast.error(`Error processing ${file.name}: ${error.message}`);
+            return null;
+          });
+      })
     );
     
-    return processedFiles;
+    // Filter out any null results (failures)
+    const successfullyProcessedFiles = processedFiles.filter(file => file !== null) as DocumentFile[];
+    
+    return successfullyProcessedFiles;
   } catch (error) {
     toast.error("Error processing PDF files.");
     console.error("Error processing PDF files:", error);

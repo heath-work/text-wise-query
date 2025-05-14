@@ -46,14 +46,23 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
         if (processedDocuments.length > 0) {
           // Save documents to Supabase
           const savePromises = processedDocuments.map(doc => saveDocumentToSupabase(doc));
-          const saveResults = await Promise.all(savePromises);
           
-          const successCount = saveResults.filter(Boolean).length;
-          
-          if (successCount > 0) {
-            onDocumentsUploaded(processedDocuments);
-            toast.success(`Successfully processed and saved ${successCount} document${successCount > 1 ? "s" : ""}.`);
+          try {
+            const saveResults = await Promise.all(savePromises);
+            const successCount = saveResults.filter(Boolean).length;
+            
+            if (successCount > 0) {
+              onDocumentsUploaded(processedDocuments);
+              toast.success(`Successfully processed and saved ${successCount} document${successCount > 1 ? "s" : ""}.`);
+            } else {
+              toast.error("Failed to save documents to the database.");
+            }
+          } catch (saveError) {
+            console.error("Error saving documents to Supabase:", saveError);
+            toast.error("Failed to save documents to the database.");
           }
+        } else {
+          toast.error("No documents were successfully processed.");
         }
       } catch (error) {
         console.error("Error processing PDF files:", error);
