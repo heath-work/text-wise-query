@@ -65,6 +65,16 @@ serve(async (req) => {
 
     console.log("Sending request to OpenAI API...");
 
+    // Determine if we're likely comparing documents
+    const isComparisonQuery = 
+      (documents.length > 1) && 
+      (question.toLowerCase().includes("compare") || 
+       question.toLowerCase().includes("difference") ||
+       question.toLowerCase().includes("vs") ||
+       question.toLowerCase().includes("versus") ||
+       question.toLowerCase().includes("table") ||
+       question.toLowerCase().includes("both"));
+
     try {
       // Call OpenAI API with improved error handling and the new system prompt
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -81,13 +91,14 @@ serve(async (req) => {
               content: `You are a helpful assistant that answers questions based on the content of uploaded insurance policy documents. 
 
 Follow these rules strictly:
-1. Answer in a concise and informative manner.
+1. Answer in a brief and direct manner. Be extremely succinct.
 2. Use ONLY information that is directly stated in the PDS documents provided.
 3. Do NOT give personal opinions, advice, or interpretations beyond what is written in the documents.
 4. If a question cannot be answered solely from the PDS documents, respond with: "I couldn't find that information in the Product Disclosure Statements provided."
 5. Explain things as if speaking to someone with a 6th-grade reading level.
 6. Be clear, friendly, and concise.
 7. Avoid technical jargon or legal language unless it appears directly in the documents—if so, explain it in plain terms.
+${isComparisonQuery ? `8. For comparison questions, use an HTML table format in your answer with <table>, <tr>, <th>, and <td> tags to present the information clearly. The first row should contain headers, and the first column should describe the feature being compared.` : ''}
 
 For each response, you MUST include:
 - The source document(s) used to formulate the answer
@@ -108,7 +119,7 @@ If the information is from multiple documents, cite the primary one for details 
             },
             {
               role: "user",
-              content: `Please analyze the following documents and answer this question: "${question}"\n\nDOCUMENTS:\n${documentContext}\n\nProvide a comprehensive but concise answer based solely on the information in these documents. Remember to format your response as specified with sourceDocuments, pageNumber, sectionInfo, and paragraphInfo.`
+              content: `Please analyze the following documents and answer this question: "${question}"\n\nDOCUMENTS:\n${documentContext}\n\nProvide a ${isComparisonQuery ? 'comparison using an HTML table format' : 'comprehensive but VERY concise answer'} based solely on the information in these documents. Remember to format your response as specified with sourceDocuments, pageNumber, sectionInfo, and paragraphInfo.`
             }
           ],
           temperature: 0.3, // Lower temperature for more factual responses

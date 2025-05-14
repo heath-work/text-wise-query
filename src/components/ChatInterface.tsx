@@ -47,6 +47,32 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Detect if a message contains a table
+  const containsTable = (text: string): boolean => {
+    return text.includes("<table") || text.includes("<tr") || text.includes("<th") || text.includes("<td");
+  };
+
+  // Render message text, possibly with HTML table
+  const renderMessageContent = (text: string) => {
+    if (containsTable(text)) {
+      return (
+        <div 
+          className="table-container overflow-x-auto"
+          dangerouslySetInnerHTML={{ 
+            __html: text
+              // Add styling to tables
+              .replace(/<table/g, '<table class="w-full border-collapse"')
+              .replace(/<th/g, '<th class="border border-gray-300 bg-gray-100 px-3 py-2 text-left"')
+              .replace(/<td/g, '<td class="border border-gray-300 px-3 py-2"')
+          }} 
+        />
+      );
+    }
+    
+    // For regular text messages
+    return <div className="whitespace-pre-wrap">{text}</div>;
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-hidden">
@@ -79,7 +105,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         : "bg-chat-bot border border-border"
                     }`}
                   >
-                    <div className="text-sm whitespace-pre-wrap">{message.text}</div>
+                    <div className="text-sm">
+                      {renderMessageContent(message.text)}
+                    </div>
                     
                     {message.sender === "bot" && message.sourceInfo && message.sourceInfo.sourceDocuments.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-border">
