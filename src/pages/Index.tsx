@@ -63,19 +63,22 @@ const Index = () => {
     
     try {
       // Generate bot response
-      const response = await generateResponse(text, documents);
+      const botMessage = await generateResponse(text, documents);
       
-      // Add bot message
-      const botMessage: ChatMessage = {
-        id: Math.random().toString(36).substr(2, 9),
-        text: response,
-        sender: "bot",
-        timestamp: Date.now(),
-      };
-      
+      // Add bot message to chat
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
       console.error("Error sending message:", error);
+      
+      // Add error message if the response generation fails
+      const errorMessage: ChatMessage = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: "Sorry, I encountered an error while processing your question. Please try again.",
+        sender: "bot",
+        timestamp: Date.now()
+      };
+      
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsWaitingForResponse(false);
     }

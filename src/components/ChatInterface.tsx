@@ -3,7 +3,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, User } from "lucide-react";
+import { Send, User, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { ChatMessage } from "@/utils/chatUtils";
 
 interface ChatInterfaceProps {
@@ -19,6 +19,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [expandedSourceInfo, setExpandedSourceInfo] = useState<Set<string>>(new Set());
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +27,19 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       onSendMessage(input.trim());
       setInput("");
     }
+  };
+
+  // Toggle source info visibility
+  const toggleSourceInfo = (messageId: string) => {
+    setExpandedSourceInfo(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
   };
 
   // Auto-scroll to bottom when messages change
@@ -66,6 +80,47 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     }`}
                   >
                     <div className="text-sm whitespace-pre-wrap">{message.text}</div>
+                    
+                    {message.sender === "bot" && message.sourceInfo && message.sourceInfo.sourceDocuments.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border">
+                        <button 
+                          onClick={() => toggleSourceInfo(message.id)}
+                          className="flex items-center text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <FileText size={12} className="mr-1" />
+                          Source information
+                          {expandedSourceInfo.has(message.id) ? (
+                            <ChevronUp size={12} className="ml-1" />
+                          ) : (
+                            <ChevronDown size={12} className="ml-1" />
+                          )}
+                        </button>
+                        
+                        {expandedSourceInfo.has(message.id) && (
+                          <div className="mt-2 text-xs space-y-1 text-muted-foreground">
+                            <div>
+                              <span className="font-medium">Source:</span> {message.sourceInfo.sourceDocuments.join(", ")}
+                            </div>
+                            {message.sourceInfo.pageNumber && (
+                              <div>
+                                <span className="font-medium">Page:</span> {message.sourceInfo.pageNumber}
+                              </div>
+                            )}
+                            {message.sourceInfo.sectionInfo && (
+                              <div>
+                                <span className="font-medium">Section:</span> {message.sourceInfo.sectionInfo}
+                              </div>
+                            )}
+                            {message.sourceInfo.paragraphInfo && (
+                              <div>
+                                <span className="font-medium">Reference:</span> {message.sourceInfo.paragraphInfo}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="text-xs text-muted-foreground mt-1">
                       {new Date(message.timestamp).toLocaleTimeString([], {
                         hour: "2-digit",

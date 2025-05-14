@@ -66,7 +66,7 @@ serve(async (req) => {
     console.log("Sending request to OpenAI API...");
 
     try {
-      // Call OpenAI API with improved error handling
+      // Call OpenAI API with improved error handling and the new system prompt
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -78,15 +78,42 @@ serve(async (req) => {
           messages: [
             {
               role: "system", 
-              content: "You are a helpful assistant that answers questions based on the content of uploaded documents. If you detect that document content is missing or empty, indicate that there might be an issue with text extraction from the PDF."
+              content: `You are a helpful assistant that answers questions based on the content of uploaded insurance policy documents. 
+
+Follow these rules strictly:
+1. Answer in a concise and informative manner.
+2. Use ONLY information that is directly stated in the PDS documents provided.
+3. Do NOT give personal opinions, advice, or interpretations beyond what is written in the documents.
+4. If a question cannot be answered solely from the PDS documents, respond with: "I couldn't find that information in the Product Disclosure Statements provided."
+5. Explain things as if speaking to someone with a 6th-grade reading level.
+6. Be clear, friendly, and concise.
+7. Avoid technical jargon or legal language unless it appears directly in the documents—if so, explain it in plain terms.
+
+For each response, you MUST include:
+- The source document(s) used to formulate the answer
+- Page number (if available)
+- Section info (name or number, if available)
+- Paragraph or key sentence that supports your answer (if available)
+
+Your response should be formatted as a JSON object with these fields:
+{
+  "text": "Your answer here following all the rules above",
+  "sourceDocuments": ["document name(s)"],
+  "pageNumber": "page number or empty string if not available",
+  "sectionInfo": "section info or empty string if not available",
+  "paragraphInfo": "supporting paragraph or key sentence or empty string if not available"
+}
+
+If the information is from multiple documents, cite the primary one for details or the first where relevant information is found.`
             },
             {
               role: "user",
-              content: `Please analyze the following documents and answer this question: "${question}"\n\nDOCUMENTS:\n${documentContext}\n\nProvide a comprehensive but concise answer based solely on the information in these documents. If the answer cannot be found in the documents, please state that clearly.`
+              content: `Please analyze the following documents and answer this question: "${question}"\n\nDOCUMENTS:\n${documentContext}\n\nProvide a comprehensive but concise answer based solely on the information in these documents. Remember to format your response as specified with sourceDocuments, pageNumber, sectionInfo, and paragraphInfo.`
             }
           ],
           temperature: 0.3, // Lower temperature for more factual responses
-          max_tokens: 1000  // Reasonable length limit
+          max_tokens: 1000,  // Reasonable length limit
+          response_format: { type: "json_object" } // Ensure response is formatted as JSON
         })
       });
 
@@ -133,12 +160,45 @@ serve(async (req) => {
       const data = await response.json();
       console.log("Received response from OpenAI API");
 
-      // Extract the generated text from the response
-      const generatedText = data.choices[0].message.content || 
-        "Sorry, I couldn't generate a response based on the documents.";
+      // Parse the JSON response
+      let parsedResponse;
+      try {
+        // The response should already be a JSON object with the proper structure
+        parsedResponse = data.choices[0].message.content;
+        
+        // Make sure we have a text field at minimum
+        if (typeof parsedResponse === 'string') {
+          try {
+            parsedResponse = JSON.parse(parsedResponse);
+          } catch (e) {
+            console.error("Error parsing JSON string from OpenAI response:", e);
+            parsedResponse = { text: parsedResponse };
+          }
+        }
+        
+        if (!parsedResponse.text) {
+          parsedResponse.text = "I couldn't generate a properly formatted response. Please try again.";
+        }
+        
+        // Ensure all required fields exist
+        parsedResponse.sourceDocuments = parsedResponse.sourceDocuments || [];
+        parsedResponse.pageNumber = parsedResponse.pageNumber || "";
+        parsedResponse.sectionInfo = parsedResponse.sectionInfo || "";
+        parsedResponse.paragraphInfo = parsedResponse.paragraphInfo || "";
+        
+      } catch (e) {
+        console.error("Error processing OpenAI response:", e);
+        parsedResponse = {
+          text: "Sorry, I encountered an error processing the response. Please try again.",
+          sourceDocuments: [],
+          pageNumber: "",
+          sectionInfo: "",
+          paragraphInfo: ""
+        };
+      }
 
       return new Response(
-        JSON.stringify({ text: generatedText }),
+        JSON.stringify(parsedResponse),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (error) {
