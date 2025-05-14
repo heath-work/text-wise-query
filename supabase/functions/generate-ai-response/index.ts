@@ -82,15 +82,25 @@ serve(async (req) => {
         })
       });
 
+      // Attempt to parse the error response, even if not valid JSON
+      let errorData = {};
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          console.error("Could not parse error response as JSON");
+        }
+        
         console.error("OpenAI API error details:", JSON.stringify(errorData, null, 2));
         
-        if (response.status === 429) {
+        // Handle quota exceeded specifically
+        if (response.status === 429 || 
+           (errorData?.error?.type === "insufficient_quota") ||
+           (errorData?.error?.message && errorData.error.message.includes("quota"))) {
           return new Response(
             JSON.stringify({ 
-              error: "OpenAI API rate limit exceeded", 
-              details: "Please try again later."
+              error: "OpenAI API quota exceeded", 
+              details: "Your OpenAI API key has insufficient quota. Please check your billing details at https://platform.openai.com/account/billing."
             }),
             { 
               status: 429, 
@@ -99,10 +109,11 @@ serve(async (req) => {
           );
         }
         
+        // Handle other API errors
         return new Response(
           JSON.stringify({
             error: `OpenAI API error: ${response.status} ${response.statusText}`,
-            details: errorData.error?.message || "Unknown error"
+            details: errorData?.error?.message || "Unknown error"
           }),
           {
             status: response.status,

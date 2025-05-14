@@ -34,11 +34,14 @@ export const generateResponse = async (
       // Check if there's a more detailed error message
       const errorMessage = error.message || "Unknown error";
       
-      if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
-        toast.error("OpenAI rate limit exceeded. Please try again later.");
-        return "I'm currently experiencing high demand and have reached my rate limit. Please try again in a few moments.";
+      // Handle quota exceeded case
+      if (errorMessage.includes("quota") || errorMessage.includes("429") || 
+          errorMessage.includes("insufficient_quota")) {
+        toast.error("OpenAI API quota exceeded. Please check your billing details.");
+        return "I'm sorry, but your OpenAI API quota has been exceeded. Please check your OpenAI account billing details at https://platform.openai.com/account/billing.";
       }
       
+      // Handle missing API key
       if (errorMessage.includes("OpenAI API key is not configured")) {
         toast.error("OpenAI API key is not configured.");
         return "The OpenAI API key is not configured. Please add your OpenAI API key to continue using this feature.";
@@ -55,6 +58,13 @@ export const generateResponse = async (
     
     if (data.error) {
       console.error("AI service returned an error:", data.error);
+      
+      // Handle quota exceeded case
+      if (data.error.includes("quota") || data.error.includes("insufficient_quota")) {
+        toast.error("OpenAI API quota exceeded. Please check your billing details.");
+        return "I'm sorry, but your OpenAI API quota has been exceeded. Please check your OpenAI account billing details at https://platform.openai.com/account/billing.";
+      }
+      
       toast.error(`AI service error: ${data.error}`);
       return `I encountered an error while processing your question: ${data.error}. ${data.details || ''}`;
     }
