@@ -81,3 +81,7 @@
   background-color: rgba(156, 163, 175, 0.5);
   border-radius: 20px;
 }
+
+.col-span-8 {
+    grid-column: span 9 / span 9;
+}
