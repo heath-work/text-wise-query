@@ -50,26 +50,14 @@ serve(async (req) => {
       `Document: ${doc.name}\nContent: ${doc.content}`
     ).join("\n\n");
 
-    // Prepare messages for OpenAI API
-    const messages = [
-      {
-        role: "system", 
-        content: "You are a helpful assistant that answers questions based on the content of uploaded documents."
-      },
-      {
-        role: "user",
-        content: `Please analyze the following documents and answer this question: "${question}"\n\nDOCUMENTS:\n${documentContext}\n\nProvide a comprehensive but concise answer based solely on the information in these documents. If the answer cannot be found in the documents, please state that clearly.`
-      }
-    ];
+    // Check if we have the OpenAI API key
+    if (!OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is not configured");
+    }
 
     console.log("Sending request to OpenAI API...");
 
     try {
-      // Check if we have the OpenAI API key
-      if (!OPENAI_API_KEY) {
-        throw new Error("OpenAI API key is not configured");
-      }
-
       // Call OpenAI API
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -79,7 +67,16 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           model: MODEL_NAME,
-          messages: messages,
+          messages: [
+            {
+              role: "system", 
+              content: "You are a helpful assistant that answers questions based on the content of uploaded documents."
+            },
+            {
+              role: "user",
+              content: `Please analyze the following documents and answer this question: "${question}"\n\nDOCUMENTS:\n${documentContext}\n\nProvide a comprehensive but concise answer based solely on the information in these documents. If the answer cannot be found in the documents, please state that clearly.`
+            }
+          ],
           temperature: 0.3, // Lower temperature for more factual responses
           max_tokens: 1000  // Reasonable length limit
         })

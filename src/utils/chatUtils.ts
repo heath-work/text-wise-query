@@ -66,6 +66,6 @@ export const generateResponse = async (
   } catch (error) {
     console.error("Error generating response:", error);
     toast.error("Failed to generate a response. Please try again.");
-    return "I'm sorry, but I couldn't generate a response at this time. Please ensure your OpenAI API key is properly configured and try again in a few moments.";
+    return "I'm sorry, but I couldn't generate a response at this time. Please try again in a few moments.";
   }
 };
