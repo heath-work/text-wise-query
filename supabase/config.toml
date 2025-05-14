@@ -3,3 +3,7 @@ project_id = "zritiseifgxtjrocgyfl"
 
 [functions.generate-ai-response]
 verify_jwt = false
+
+[functions.proxy-pdf]
+verify_jwt = false
+

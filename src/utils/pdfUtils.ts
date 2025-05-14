@@ -2,6 +2,7 @@
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 import * as pdfjs from 'pdfjs-dist';
+import { supabase } from "@/integrations/supabase/client";
 
 // Set the worker source for PDF.js
 const pdfjsWorkerSrc = `//unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -127,15 +128,27 @@ export const fetchPdfFromUrl = async (url: string, fileName: string): Promise<Do
   try {
     console.log(`Fetching PDF from URL: ${url}`);
     
-    // Fetch the PDF file
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+    toast.info(`Fetching PDF from URL...`);
+
+    // Use the Supabase Edge Function to proxy the request
+    const { data, error } = await supabase.functions.invoke("proxy-pdf", {
+      body: { url }
+    });
+
+    if (error) {
+      console.error("Error from proxy function:", error);
+      throw new Error(`Failed to fetch PDF: ${error.message}`);
     }
-    
-    // Get the file size
-    const contentLength = response.headers.get('content-length');
-    const size = contentLength ? parseInt(contentLength, 10) : 0;
+
+    if (!data) {
+      throw new Error("No data received from proxy");
+    }
+
+    // Convert Base64 data to ArrayBuffer
+    const response = await fetch(`data:application/pdf;base64,${data}`);
+    if (!response.ok) {
+      throw new Error(`Failed to process PDF data: ${response.status} ${response.statusText}`);
+    }
     
     // Convert response to array buffer
     const arrayBuffer = await response.arrayBuffer();
@@ -150,7 +163,7 @@ export const fetchPdfFromUrl = async (url: string, fileName: string): Promise<Do
     const documentFile: DocumentFile = {
       id: uuidv4(),
       name: fileName,
-      size: size,
+      size: arrayBuffer.byteLength,
       type: 'application/pdf',
       content: extractedText,
       lastModified: Date.now()
