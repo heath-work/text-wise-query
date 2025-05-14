@@ -34,7 +34,7 @@ serve(async (req) => {
     // Fetch documents from Supabase
     const { data: documents, error } = await supabase
       .from('documents')
-      .select('name, content')
+      .select('id, name, content')
       .in('id', documentIds);
 
     if (error) {
@@ -44,10 +44,18 @@ serve(async (req) => {
     if (!documents || documents.length === 0) {
       throw new Error("No documents found with the provided IDs");
     }
+    
+    // Debug: Log document names and content length to verify data
+    documents.forEach(doc => {
+      console.log(`Document ${doc.id} (${doc.name}): Content length = ${doc.content ? doc.content.length : 0} characters`);
+      if (!doc.content || doc.content.length < 10) {
+        console.warn(`Warning: Document ${doc.name} has little or no content!`);
+      }
+    });
 
     // Prepare context from documents
     const documentContext = documents.map(doc => 
-      `Document: ${doc.name}\nContent: ${doc.content}`
+      `Document: ${doc.name}\nContent: ${doc.content || "No content available"}`
     ).join("\n\n");
 
     // Check if we have the OpenAI API key
@@ -70,7 +78,7 @@ serve(async (req) => {
           messages: [
             {
               role: "system", 
-              content: "You are a helpful assistant that answers questions based on the content of uploaded documents."
+              content: "You are a helpful assistant that answers questions based on the content of uploaded documents. If you detect that document content is missing or empty, indicate that there might be an issue with text extraction from the PDF."
             },
             {
               role: "user",

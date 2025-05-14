@@ -20,6 +20,10 @@ export const generateResponse = async (
   }
   
   try {
+    // Debug: Log documents being sent
+    console.log(`Sending ${documents.length} documents to AI:`, 
+      documents.map(doc => ({ id: doc.id, name: doc.name, contentLength: doc.content.length })));
+    
     // Collect document IDs
     const documentIds = documents.map(doc => doc.id);
     

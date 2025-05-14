@@ -31,17 +31,29 @@ export const formatFileSize = (bytes: number): string => {
 // Extract text from PDF file using PDF.js
 export const extractTextFromPdf = async (arrayBuffer: ArrayBuffer): Promise<string> => {
   try {
+    console.log("Starting PDF text extraction, buffer size:", arrayBuffer.byteLength);
+    
     // Load the PDF document
     const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
+    
+    console.log(`PDF loaded successfully. Pages: ${pdf.numPages}`);
     
     // Extract text from each page
     const numPages = pdf.numPages;
     let fullText = '';
     
     for (let i = 1; i <= numPages; i++) {
+      console.log(`Processing page ${i} of ${numPages}`);
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
+      
+      if (!textContent || !textContent.items || textContent.items.length === 0) {
+        console.warn(`Warning: No text content found on page ${i}`);
+      } else {
+        console.log(`Page ${i}: Found ${textContent.items.length} text items`);
+      }
+      
       const pageText = textContent.items
         .map((item: any) => item.str)
         .join(' ');
@@ -49,16 +61,24 @@ export const extractTextFromPdf = async (arrayBuffer: ArrayBuffer): Promise<stri
       fullText += pageText + '\n\n'; // Add line breaks between pages
     }
     
-    return fullText.trim();
+    const extractedText = fullText.trim();
+    console.log(`Text extraction complete. Extracted ${extractedText.length} characters`);
+    
+    if (extractedText.length < 100) {
+      console.warn("Warning: Very little text was extracted from the PDF.");
+    }
+    
+    return extractedText;
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
-    throw new Error('Error extracting text from PDF');
+    throw new Error(`Error extracting text from PDF: ${error.message}`);
   }
 };
 
 // Process PDF file and extract text content
 export const processPdfFile = (file: File): Promise<DocumentFile> => {
   return new Promise((resolve, reject) => {
+    console.log(`Processing PDF file: ${file.name}, size: ${file.size} bytes`);
     const reader = new FileReader();
     
     reader.onload = async () => {
@@ -71,6 +91,10 @@ export const processPdfFile = (file: File): Promise<DocumentFile> => {
         // Extract text from PDF
         const extractedText = await extractTextFromPdf(arrayBuffer);
         
+        if (extractedText.length < 100) {
+          toast.warning(`Very little text was extracted from ${file.name}. The document might be scanned or have restricted permissions.`);
+        }
+        
         const documentFile: DocumentFile = {
           id: uuidv4(),
           name: file.name,
@@ -80,6 +104,7 @@ export const processPdfFile = (file: File): Promise<DocumentFile> => {
           lastModified: file.lastModified
         };
         
+        console.log(`Successfully processed ${file.name}: extracted ${extractedText.length} characters`);
         resolve(documentFile);
       } catch (error) {
         console.error('Error processing PDF file:', error);
@@ -88,6 +113,7 @@ export const processPdfFile = (file: File): Promise<DocumentFile> => {
     };
     
     reader.onerror = () => {
+      console.error(`Error reading file: ${file.name}`);
       reject(new Error(`Error reading file: ${file.name}`));
     };
     
@@ -108,11 +134,14 @@ export const processMultiplePdfFiles = async (
       return [];
     }
     
+    console.log(`Processing ${pdfFiles.length} PDF files...`);
+    
     const processedFiles = await Promise.all(
       pdfFiles.map(file => {
         return processPdfFile(file)
           .catch(error => {
             toast.error(`Error processing ${file.name}: ${error.message}`);
+            console.error(`Error processing ${file.name}:`, error);
             return null;
           });
       })
@@ -120,6 +149,8 @@ export const processMultiplePdfFiles = async (
     
     // Filter out any null results (failures)
     const successfullyProcessedFiles = processedFiles.filter(file => file !== null) as DocumentFile[];
+    
+    console.log(`Successfully processed ${successfullyProcessedFiles.length} of ${pdfFiles.length} files`);
     
     return successfullyProcessedFiles;
   } catch (error) {

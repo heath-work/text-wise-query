@@ -1,4 +1,3 @@
-
 import React, { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -44,6 +43,14 @@ const DocumentUploader: React.FC<DocumentUploaderProps> = ({
         const processedDocuments = await processMultiplePdfFiles(pdfFiles);
         
         if (processedDocuments.length > 0) {
+          // Debug: Log extracted text length
+          processedDocuments.forEach(doc => {
+            console.log(`Processed ${doc.name}: ${doc.content.length} characters extracted`);
+            if (doc.content.length < 100) {
+              console.warn(`Warning: Very little text extracted from ${doc.name}`);
+            }
+          });
+          
           // Save documents to Supabase
           const savePromises = processedDocuments.map(doc => saveDocumentToSupabase(doc));
           

@@ -6,6 +6,14 @@ import { toast } from "sonner";
 // Save document to Supabase
 export const saveDocumentToSupabase = async (document: DocumentFile): Promise<boolean> => {
   try {
+    console.log(`Saving document to Supabase: ${document.name} (content length: ${document.content.length} chars)`);
+
+    if (!document.content || document.content.length === 0) {
+      console.error("Error: Document has no content");
+      toast.error(`Failed to save ${document.name}: No content extracted`);
+      return false;
+    }
+    
     const { error } = await supabase
       .from('documents')
       .insert({
@@ -19,7 +27,7 @@ export const saveDocumentToSupabase = async (document: DocumentFile): Promise<bo
 
     if (error) {
       console.error("Error saving document to Supabase:", error);
-      toast.error("Failed to save document to database.");
+      toast.error(`Failed to save document to database: ${error.message}`);
       return false;
     }
 
@@ -46,16 +54,30 @@ export const getDocumentsFromSupabase = async (): Promise<DocumentFile[]> => {
     }
 
     // Convert Supabase data format to DocumentFile format
-    const documents: DocumentFile[] = data.map(doc => ({
-      id: doc.id,
-      name: doc.name,
-      size: doc.size,
-      type: doc.type,
-      content: doc.content,
-      lastModified: doc.last_modified
-    }));
+    const documents: DocumentFile[] = data.map(doc => {
+      // Debug: Check the content
+      if (!doc.content || doc.content.length < 100) {
+        console.warn(`Warning: Document ${doc.name} has little or no content (${doc.content ? doc.content.length : 0} chars)`);
+      }
+
+      return {
+        id: doc.id,
+        name: doc.name,
+        size: doc.size,
+        type: doc.type,
+        content: doc.content || "",
+        lastModified: doc.last_modified
+      };
+    });
 
     console.log("Documents retrieved from Supabase successfully:", documents.length);
+    
+    // Count documents with little or no content
+    const lowContentDocs = documents.filter(doc => !doc.content || doc.content.length < 100);
+    if (lowContentDocs.length > 0) {
+      console.warn(`${lowContentDocs.length} document(s) have little or no content extracted`);
+    }
+    
     return documents;
   } catch (error) {
     console.error("Error fetching documents from Supabase:", error);
