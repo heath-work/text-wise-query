@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { DocumentFile } from "@/utils/pdfUtils";
 import { ChatMessage, generateResponse } from "@/utils/chatUtils";
@@ -17,6 +18,13 @@ import { Separator } from "@/components/ui/separator";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getDocumentsFromSupabase, deleteDocumentFromSupabase } from "@/utils/supabaseDocumentUtils";
 import { toast } from "sonner";
+import { Maximize } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const Index = () => {
   const [documents, setDocuments] = useState<DocumentFile[]>([]);
@@ -26,7 +34,7 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showChatHistory, setShowChatHistory] = useState(!useIsMobile());
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const isMobile = useIsMobile();
 
   // Fetch documents from Supabase on component mount
@@ -146,6 +154,10 @@ const Index = () => {
     setMessages([]);
   };
 
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
   return (
     <div className="min-h-screen bg-background py-8 px-4 md:px-8">
       <div className="max-w-7xl mx-auto">
@@ -157,55 +169,68 @@ const Index = () => {
         </div>
 
         <div className={`grid ${isMobile ? 'grid-cols-1 gap-6' : 'grid-cols-12 gap-8'}`}>
-          {/* Documents Section - 25% width */}
-          <div className={isMobile ? '' : 'col-span-3'}>
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <CardTitle>Documents</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <DocumentUploader 
-                  onDocumentsUploaded={handleDocumentsUploaded}
-                  isProcessing={isProcessingUpload}
-                  setIsProcessing={setIsProcessingUpload}
-                />
-                {isLoading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                  </div>
-                ) : (
-                  <DocumentList 
-                    documents={documents}
-                    onRemoveDocument={handleRemoveDocument}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Chat History Section - 25% width */}
-          {showChatHistory && (
+          {/* Documents Section - Only visible when not in fullscreen mode */}
+          {!isFullscreen && (
             <div className={isMobile ? '' : 'col-span-3'}>
               <Card className="h-full">
                 <CardHeader className="pb-3">
-                  <CardTitle>Chat History</CardTitle>
+                  <CardTitle>Documents</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ChatHistory 
-                    onSelectChat={handleSelectChat}
-                    onNewChat={handleNewChat}
-                    currentChatId={currentChatId}
+                <CardContent className="space-y-4">
+                  <DocumentUploader 
+                    onDocumentsUploaded={handleDocumentsUploaded}
+                    isProcessing={isProcessingUpload}
+                    setIsProcessing={setIsProcessingUpload}
                   />
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                    </div>
+                  ) : (
+                    <DocumentList 
+                      documents={documents}
+                      onRemoveDocument={handleRemoveDocument}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Chat Section - 50% width (or more if chat history is hidden) */}
-          <div className={isMobile ? '' : `col-span-${showChatHistory ? '6' : '9'}`}>
+          {/* Chat Section - Takes full width in fullscreen mode */}
+          <div className={isMobile ? '' : `col-span-${isFullscreen ? '12' : '9'}`}>
             <Card className="h-full">
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle>Chat</CardTitle>
+                <div className="flex items-center gap-2">
+                  {/* Chat History Flyout Trigger */}
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Chat History
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+                      <div className="h-full pt-6">
+                        <ChatHistory
+                          onSelectChat={handleSelectChat}
+                          onNewChat={handleNewChat}
+                          currentChatId={currentChatId}
+                        />
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                  
+                  {/* Fullscreen Toggle Button */}
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={toggleFullscreen} 
+                    title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                  >
+                    <Maximize className={isFullscreen ? "rotate-45" : ""} />
+                  </Button>
+                </div>
               </CardHeader>
               <Separator />
               <CardContent className="p-0">
@@ -214,8 +239,8 @@ const Index = () => {
                     messages={messages}
                     onSendMessage={handleSendMessage}
                     isWaitingForResponse={isWaitingForResponse}
-                    onToggleChatHistory={() => setShowChatHistory(!showChatHistory)}
-                    showChatHistoryButton={isMobile}
+                    onToggleChatHistory={() => {}}
+                    showChatHistoryButton={false}
                   />
                 </div>
               </CardContent>

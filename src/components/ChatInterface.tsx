@@ -8,8 +8,7 @@ import {
   User, 
   FileText, 
   ChevronDown, 
-  ChevronUp, 
-  History
+  ChevronUp
 } from "lucide-react";
 import { ChatMessage } from "@/utils/chatUtils";
 
@@ -196,7 +195,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               onClick={onToggleChatHistory}
               className="flex-shrink-0"
             >
-              <History size={18} />
+              <span className="sr-only">Toggle Chat History</span>
             </Button>
           )}
           
