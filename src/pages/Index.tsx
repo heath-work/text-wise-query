@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { DocumentFile } from "@/utils/pdfUtils";
 import { ChatMessage, generateResponse } from "@/utils/chatUtils";
@@ -158,8 +157,8 @@ const Index = () => {
         </div>
 
         <div className={`grid ${isMobile ? 'grid-cols-1 gap-6' : 'grid-cols-12 gap-8'}`}>
-          {/* Documents Section */}
-          <div className={isMobile ? '' : 'col-span-2'}>
+          {/* Documents Section - 25% width */}
+          <div className={isMobile ? '' : 'col-span-3'}>
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle>Documents</CardTitle>
@@ -184,9 +183,9 @@ const Index = () => {
             </Card>
           </div>
 
-          {/* Chat History Section - Only visible on desktop or when toggled on mobile */}
+          {/* Chat History Section - 25% width */}
           {showChatHistory && (
-            <div className={isMobile ? '' : 'col-span-2'}>
+            <div className={isMobile ? '' : 'col-span-3'}>
               <Card className="h-full">
                 <CardHeader className="pb-3">
                   <CardTitle>Chat History</CardTitle>
@@ -202,8 +201,8 @@ const Index = () => {
             </div>
           )}
 
-          {/* Chat Section */}
-          <div className={isMobile ? '' : `col-span-${showChatHistory ? '8' : '10'}`}>
+          {/* Chat Section - 50% width (or more if chat history is hidden) */}
+          <div className={isMobile ? '' : `col-span-${showChatHistory ? '6' : '9'}`}>
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle>Chat</CardTitle>
