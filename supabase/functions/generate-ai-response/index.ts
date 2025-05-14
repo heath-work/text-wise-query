@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { question, documentIds } = await req.json();
+    const { question, documentIds, chatId } = await req.json();
     
     if (!question) {
       throw new Error("Question is required");
@@ -30,6 +30,9 @@ serve(async (req) => {
     }
 
     console.log(`Received question: "${question}" for documents:`, documentIds);
+    if (chatId) {
+      console.log(`Question belongs to chat session: ${chatId}`);
+    }
 
     // Fetch documents from Supabase
     const { data: documents, error } = await supabase

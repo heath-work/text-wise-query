@@ -19,7 +19,8 @@ export interface ChatMessage {
 // Generate a response using OpenAI via Supabase Edge Function
 export const generateResponse = async (
   question: string,
-  documents: DocumentFile[]
+  documents: DocumentFile[],
+  chatId?: string
 ): Promise<ChatMessage> => {
   if (documents.length === 0) {
     return {
@@ -40,7 +41,7 @@ export const generateResponse = async (
     
     // Call the Supabase Edge Function
     const { data, error } = await supabase.functions.invoke('generate-ai-response', {
-      body: { question, documentIds }
+      body: { question, documentIds, chatId }
     });
 
     if (error) {

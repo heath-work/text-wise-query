@@ -3,19 +3,30 @@ import React, { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, User, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { 
+  Send, 
+  User, 
+  FileText, 
+  ChevronDown, 
+  ChevronUp, 
+  History
+} from "lucide-react";
 import { ChatMessage } from "@/utils/chatUtils";
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
   onSendMessage: (message: string) => void;
   isWaitingForResponse: boolean;
+  onToggleChatHistory?: () => void;
+  showChatHistoryButton?: boolean;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messages,
   onSendMessage,
-  isWaitingForResponse
+  isWaitingForResponse,
+  onToggleChatHistory,
+  showChatHistoryButton = false
 }) => {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -177,6 +188,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       <div className="pt-4">
         <form onSubmit={handleSubmit} className="flex gap-2">
+          {showChatHistoryButton && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onToggleChatHistory}
+              className="flex-shrink-0"
+            >
+              <History size={18} />
+            </Button>
+          )}
+          
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}

@@ -2,9 +2,17 @@
 import React, { useState, useEffect } from "react";
 import { DocumentFile } from "@/utils/pdfUtils";
 import { ChatMessage, generateResponse } from "@/utils/chatUtils";
+import {
+  ChatSession,
+  createChatSession,
+  getChatSession,
+  getChatMessages,
+  saveChatMessages
+} from "@/utils/chatHistoryUtils";
 import DocumentUploader from "@/components/DocumentUploader";
 import DocumentList from "@/components/DocumentList";
 import ChatInterface from "@/components/ChatInterface";
+import ChatHistory from "@/components/ChatHistory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -17,6 +25,9 @@ const Index = () => {
   const [isProcessingUpload, setIsProcessingUpload] = useState(false);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(!useIsMobile());
   const isMobile = useIsMobile();
 
   // Fetch documents from Supabase on component mount
@@ -36,6 +47,19 @@ const Index = () => {
 
     fetchDocuments();
   }, []);
+
+  // Save messages when they change (debounced)
+  useEffect(() => {
+    if (!currentChatId || messages.length === 0 || isSaving) return;
+    
+    const saveChatDebounced = setTimeout(async () => {
+      setIsSaving(true);
+      await saveChatMessages(currentChatId, messages);
+      setIsSaving(false);
+    }, 1000);
+    
+    return () => clearTimeout(saveChatDebounced);
+  }, [messages, currentChatId]);
 
   const handleDocumentsUploaded = (newDocuments: DocumentFile[]) => {
     setDocuments((prevDocuments) => [...prevDocuments, ...newDocuments]);
@@ -62,8 +86,17 @@ const Index = () => {
     setIsWaitingForResponse(true);
     
     try {
+      // Create a chat session if we don't have one
+      if (!currentChatId) {
+        let title = text.length > 30 ? `${text.substring(0, 30)}...` : text;
+        const chatSession = await createChatSession(documents.map(doc => doc.id), title);
+        if (chatSession) {
+          setCurrentChatId(chatSession.id);
+        }
+      }
+
       // Generate bot response
-      const botMessage = await generateResponse(text, documents);
+      const botMessage = await generateResponse(text, documents, currentChatId || undefined);
       
       // Add bot message to chat
       setMessages((prev) => [...prev, botMessage]);
@@ -84,6 +117,36 @@ const Index = () => {
     }
   };
 
+  const handleSelectChat = async (chatId: string) => {
+    if (chatId === currentChatId) return;
+    
+    setIsLoading(true);
+    try {
+      // Get the chat session
+      const session = await getChatSession(chatId);
+      if (!session) {
+        toast.error("Failed to load chat session");
+        return;
+      }
+      
+      // Get the chat messages
+      const chatMessages = await getChatMessages(chatId);
+      
+      setCurrentChatId(chatId);
+      setMessages(chatMessages);
+    } catch (error) {
+      console.error("Error loading chat session:", error);
+      toast.error("Failed to load chat session");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNewChat = () => {
+    setCurrentChatId(null);
+    setMessages([]);
+  };
+
   return (
     <div className="min-h-screen bg-background py-8 px-4 md:px-8">
       <div className="max-w-7xl mx-auto">
@@ -96,7 +159,7 @@ const Index = () => {
 
         <div className={`grid ${isMobile ? 'grid-cols-1 gap-6' : 'grid-cols-12 gap-8'}`}>
           {/* Documents Section */}
-          <div className={isMobile ? '' : 'col-span-4'}>
+          <div className={isMobile ? '' : 'col-span-3'}>
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle>Documents</CardTitle>
@@ -121,8 +184,26 @@ const Index = () => {
             </Card>
           </div>
 
+          {/* Chat History Section - Only visible on desktop or when toggled on mobile */}
+          {showChatHistory && (
+            <div className={isMobile ? '' : 'col-span-3'}>
+              <Card className="h-full">
+                <CardHeader className="pb-3">
+                  <CardTitle>Chat History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ChatHistory 
+                    onSelectChat={handleSelectChat}
+                    onNewChat={handleNewChat}
+                    currentChatId={currentChatId}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {/* Chat Section */}
-          <div className={isMobile ? '' : 'col-span-8'}>
+          <div className={isMobile ? '' : `col-span-${showChatHistory ? '6' : '9'}`}>
             <Card className="h-full">
               <CardHeader className="pb-3">
                 <CardTitle>Chat</CardTitle>
@@ -134,6 +215,8 @@ const Index = () => {
                     messages={messages}
                     onSendMessage={handleSendMessage}
                     isWaitingForResponse={isWaitingForResponse}
+                    onToggleChatHistory={() => setShowChatHistory(!showChatHistory)}
+                    showChatHistoryButton={isMobile}
                   />
                 </div>
               </CardContent>
