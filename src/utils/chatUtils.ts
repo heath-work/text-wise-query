@@ -10,7 +10,7 @@ export interface ChatMessage {
   timestamp: number;
 }
 
-// Generate a response using Ollama via Supabase Edge Function
+// Generate a response using OpenAI via Supabase Edge Function
 export const generateResponse = async (
   question: string,
   documents: DocumentFile[]
@@ -33,9 +33,15 @@ export const generateResponse = async (
       
       // Check if there's a more detailed error message
       const errorMessage = error.message || "Unknown error";
-      if (errorMessage.includes("Failed to connect to Ollama")) {
-        toast.error("Cannot connect to Ollama service. Please ensure it's running.");
-        return "I cannot connect to the Ollama service. Please make sure it's running and properly configured.";
+      
+      if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
+        toast.error("OpenAI rate limit exceeded. Please try again later.");
+        return "I'm currently experiencing high demand and have reached my rate limit. Please try again in a few moments.";
+      }
+      
+      if (errorMessage.includes("OpenAI API key is not configured")) {
+        toast.error("OpenAI API key is not configured.");
+        return "The OpenAI API key is not configured. Please add your OpenAI API key to continue using this feature.";
       }
       
       throw new Error(errorMessage);
@@ -60,6 +66,6 @@ export const generateResponse = async (
   } catch (error) {
     console.error("Error generating response:", error);
     toast.error("Failed to generate a response. Please try again.");
-    return "I'm sorry, but I couldn't generate a response at this time. Please ensure Ollama is properly configured and try again in a few moments.";
+    return "I'm sorry, but I couldn't generate a response at this time. Please ensure your OpenAI API key is properly configured and try again in a few moments.";
   }
 };

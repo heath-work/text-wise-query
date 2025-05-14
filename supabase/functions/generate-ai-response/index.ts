@@ -3,9 +3,9 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { supabase } from "../_shared/supabase-client.ts";
 
-// Use an environment variable for the Ollama API URL with a default value
-const OLLAMA_API_URL = Deno.env.get("OLLAMA_API_URL") || "https://api.ollama.ai/v1";
-const MODEL_NAME = "llama3" // Default model
+// Use an environment variable for the OpenAI API key
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const MODEL_NAME = "gpt-4o-mini"; // Default model - fast and affordable
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,64 +50,66 @@ serve(async (req) => {
       `Document: ${doc.name}\nContent: ${doc.content}`
     ).join("\n\n");
 
-    // Prepare prompt for Ollama
-    const prompt = `
-You are a helpful assistant that answers questions based on the content of uploaded documents.
-Please analyze the following documents and answer the question.
+    // Prepare messages for OpenAI API
+    const messages = [
+      {
+        role: "system", 
+        content: "You are a helpful assistant that answers questions based on the content of uploaded documents."
+      },
+      {
+        role: "user",
+        content: `Please analyze the following documents and answer this question: "${question}"\n\nDOCUMENTS:\n${documentContext}\n\nProvide a comprehensive but concise answer based solely on the information in these documents. If the answer cannot be found in the documents, please state that clearly.`
+      }
+    ];
 
-DOCUMENTS:
-${documentContext}
-
-QUESTION:
-${question}
-
-Please provide a comprehensive but concise answer based solely on the information in these documents. 
-If the answer cannot be found in the documents, please state that clearly.
-`;
-
-    console.log("Sending request to Ollama API...");
+    console.log("Sending request to OpenAI API...");
 
     try {
-      // Call Ollama API
-      const response = await fetch(`${OLLAMA_API_URL}/generate`, {
-        method: "POST",
+      // Check if we have the OpenAI API key
+      if (!OPENAI_API_KEY) {
+        throw new Error("OpenAI API key is not configured");
+      }
+
+      // Call OpenAI API
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`
         },
         body: JSON.stringify({
           model: MODEL_NAME,
-          prompt: prompt,
-          stream: false,
-        }),
+          messages: messages,
+          temperature: 0.3, // Lower temperature for more factual responses
+          max_tokens: 1000  // Reasonable length limit
+        })
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Ollama API error:", errorText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error("OpenAI API error:", errorData);
         
-        // Generate a simple fallback response if there's an issue with Ollama
-        let fallbackResponse = "I apologize, but I'm having trouble processing your request. ";
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ 
+              error: "OpenAI API rate limit exceeded", 
+              details: "Please try again later."
+            }),
+            { 
+              status: 429, 
+              headers: { ...corsHeaders, "Content-Type": "application/json" }
+            }
+          );
+        }
         
-        // Add some basic document information as a fallback
-        fallbackResponse += "Here's a summary of the documents you've provided: ";
-        
-        documents.forEach(doc => {
-          fallbackResponse += `\n\n${doc.name}: `;
-          const contentPreview = doc.content.substring(0, 200);
-          fallbackResponse += `${contentPreview}... (${doc.content.length} characters total)`;
-        });
-        
-        return new Response(
-          JSON.stringify({ text: fallbackResponse }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log("Received response from Ollama API");
+      console.log("Received response from OpenAI API");
 
       // Extract the generated text from the response
-      const generatedText = data.response || 
+      const generatedText = data.choices[0].message.content || 
         "Sorry, I couldn't generate a response based on the documents.";
 
       return new Response(
@@ -115,13 +117,13 @@ If the answer cannot be found in the documents, please state that clearly.
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } catch (error) {
-      console.error("Error calling Ollama API:", error);
+      console.error("Error calling OpenAI API:", error);
       
       // Provide a helpful error message
       return new Response(
         JSON.stringify({ 
-          error: "Failed to connect to Ollama API", 
-          details: "Please ensure Ollama is running and accessible.",
+          error: "Failed to connect to OpenAI API", 
+          details: error.message,
           message: error.message 
         }),
         { 
